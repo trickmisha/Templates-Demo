@@ -2,7 +2,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
 import { UIComponent, UserSession } from './types';
 
-// Ваши ключи вставлены напрямую для мгновенной работы
 const SUPABASE_URL = 'https://njlgikiwkwoewjvgmmcf.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_LttocuA0MlAPX9RTyi6mmQ_QOS80UJf';
 
@@ -19,8 +18,8 @@ export const CloudDB = {
       if (error) throw error;
       return data || [];
     } catch (error) {
-      console.warn('Using LocalStorage fallback. Did you run the SQL script in Supabase?', error);
-      return this.getFallback('ui_hub_global_components');
+      console.error('Supabase fetch error:', error);
+      return []; // Return empty instead of breaking
     }
   },
 
@@ -32,8 +31,8 @@ export const CloudDB = {
 
       if (error) throw error;
     } catch (error) {
-      console.error('Failed to save to Cloud:', error);
-      this.saveFallback('ui_hub_global_components', component);
+      console.error('Supabase save error:', error);
+      throw error;
     }
   },
 
@@ -46,7 +45,7 @@ export const CloudDB = {
 
       if (error) throw error;
     } catch (error) {
-      this.deleteFallback('ui_hub_global_components', id);
+      console.error('Supabase delete error:', error);
     }
   },
 
@@ -59,7 +58,8 @@ export const CloudDB = {
       if (error) throw error;
       return data || [];
     } catch (error) {
-      return this.getFallback('ui_hub_global_users');
+      console.error('Supabase users error:', error);
+      return [];
     }
   },
 
@@ -71,31 +71,7 @@ export const CloudDB = {
 
       if (error) throw error;
     } catch (error) {
-      this.saveFallbackUser('ui_hub_global_users', user);
+      console.error('Supabase user save error:', error);
     }
-  },
-
-  // Fallbacks (остаются для работы если нет интернета)
-  getFallback(key: string) {
-    const data = localStorage.getItem(key);
-    return data ? JSON.parse(data) : [];
-  },
-
-  saveFallback(key: string, item: any) {
-    const items = this.getFallback(key);
-    localStorage.setItem(key, JSON.stringify([item, ...items]));
-  },
-
-  deleteFallback(key: string, id: string) {
-    const items = this.getFallback(key);
-    localStorage.setItem(key, JSON.stringify(items.filter((i: any) => i.id !== id)));
-  },
-
-  saveFallbackUser(key: string, user: UserSession) {
-    const users = this.getFallback(key);
-    const index = users.findIndex((u: any) => u.id === user.id);
-    if (index > -1) users[index] = user;
-    else users.push(user);
-    localStorage.setItem(key, JSON.stringify(users));
   }
 };

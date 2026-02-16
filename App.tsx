@@ -14,17 +14,15 @@ import AuthGate from './components/AuthGate';
 import AdminDashboard from './components/AdminDashboard';
 
 const App: React.FC = () => {
-  // Auth State
   const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
   const [users, setUsers] = useState<UserSession[]>([]);
   const [isDashboardOpen, setIsDashboardOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Content State
   const [filters, setFilters] = useState<FilterState>({
     search: '',
     category: 'All',
-    technology: Technology.VANILLA // Dummy default for type compliance
+    technology: Technology.VANILLA
   });
   
   const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES);
@@ -37,44 +35,44 @@ const App: React.FC = () => {
     isVisible: false
   });
 
-  // Init Cloud Data
   useEffect(() => {
     const initData = async () => {
-      setIsLoading(true);
-      
-      // Load Users
-      let initialUsers = await CloudDB.getUsers();
-      if (initialUsers.length === 0) {
-        initialUsers = [{ id: '1', username: 'mishatrick', role: 'Admin', lastLogin: new Date().toISOString(), publishedCount: 0 }];
-        await CloudDB.saveUser(initialUsers[0]);
+      try {
+        setIsLoading(true);
+        
+        // 1. Get Components
+        const fetched = await CloudDB.getComponents();
+        setCloudComponents(fetched);
+
+        // 2. Get Users
+        const initialUsers = await CloudDB.getUsers();
+        setUsers(initialUsers);
+
+        // 3. Check Session
+        const session = sessionStorage.getItem('ui_hub_session');
+        if (session) setCurrentUser(JSON.parse(session));
+
+        // 4. Load Favs/Cats from local
+        const savedFavs = localStorage.getItem('ui_hub_favorites');
+        if (savedFavs) setFavorites(JSON.parse(savedFavs));
+        const savedCats = localStorage.getItem('ui_hub_categories');
+        if (savedCats) setCategories(JSON.parse(savedCats));
+
+      } catch (e) {
+        console.error("Initialization failed", e);
+      } finally {
+        setIsLoading(false);
       }
-      setUsers(initialUsers);
-
-      // Load Session
-      const session = sessionStorage.getItem('ui_hub_session');
-      if (session) setCurrentUser(JSON.parse(session));
-
-      // Load Favorites
-      const savedFavs = localStorage.getItem('ui_hub_favorites');
-      if (savedFavs) setFavorites(JSON.parse(savedFavs));
-
-      // Load Cloud Components
-      const fetched = await CloudDB.getComponents();
-      setCloudComponents(fetched);
-
-      // Load Dynamic Categories
-      const savedCats = localStorage.getItem('ui_hub_categories');
-      if (savedCats) setCategories(JSON.parse(savedCats));
-
-      setIsLoading(false);
     };
 
     initData();
   }, []);
 
-  // Combined master list - Recent First
   const allComponents = useMemo(() => {
-    return [...cloudComponents, ...MOCK_COMPONENTS];
+    // Merge cloud and mock. Cloud components take precedence by date.
+    const merged = [...cloudComponents, ...MOCK_COMPONENTS];
+    // Remove duplicates by ID just in case
+    return merged.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
   }, [cloudComponents]);
 
   const filteredComponents = useMemo(() => {
@@ -99,7 +97,7 @@ const App: React.FC = () => {
       loggedUser = {
         id: Date.now().toString(),
         username,
-        role: 'User',
+        role: username.toLowerCase() === 'mishatrick' ? 'Admin' : 'User',
         lastLogin: new Date().toISOString(),
         publishedCount: 0
       };
@@ -120,11 +118,7 @@ const App: React.FC = () => {
       await CloudDB.saveUser(updated);
       const updatedUsers = await CloudDB.getUsers();
       setUsers(updatedUsers);
-      
-      if (currentUser?.id === userId) {
-        setCurrentUser(updated);
-        sessionStorage.setItem('ui_hub_session', JSON.stringify(updated));
-      }
+      if (currentUser?.id === userId) setCurrentUser(updated);
       showNotification(`User role updated to ${role}`);
     }
   };
@@ -142,7 +136,7 @@ const App: React.FC = () => {
     await CloudDB.deleteComponent(id);
     const fetched = await CloudDB.getComponents();
     setCloudComponents(fetched);
-    showNotification('Removed from Cloud Library');
+    showNotification('Asset removed');
   };
 
   const toggleFavorite = (e: React.MouseEvent, id: string) => {
@@ -150,32 +144,34 @@ const App: React.FC = () => {
     const newFavs = favorites.includes(id) 
       ? favorites.filter(favId => favId !== id) 
       : [...favorites, id];
-    
     setFavorites(newFavs);
     localStorage.setItem('ui_hub_favorites', JSON.stringify(newFavs));
-    if (!favorites.includes(id)) showNotification('Added to favorites');
   };
 
   const handleSaveComponent = async (component: UIComponent) => {
-    await CloudDB.saveComponent(component);
-    const fetched = await CloudDB.getComponents();
-    setCloudComponents(fetched);
-    
-    if (currentUser) {
-      const updatedUser = { ...currentUser, publishedCount: (currentUser.publishedCount || 0) + 1 };
-      await CloudDB.saveUser(updatedUser);
-      const updatedUsers = await CloudDB.getUsers();
-      setUsers(updatedUsers);
-      setCurrentUser(updatedUser);
+    try {
+      await CloudDB.saveComponent(component);
+      const fetched = await CloudDB.getComponents();
+      setCloudComponents(fetched);
+      
+      if (currentUser) {
+        const updatedUser = { ...currentUser, publishedCount: (currentUser.publishedCount || 0) + 1 };
+        await CloudDB.saveUser(updatedUser);
+        const updatedUsers = await CloudDB.getUsers();
+        setUsers(updatedUsers);
+        setCurrentUser(updatedUser);
+      }
+      
+      setIsAdminOpen(false);
+      showNotification('Published successfully!');
+    } catch (err) {
+      showNotification('Error saving component. Check RLS settings.');
     }
-    
-    setIsAdminOpen(false);
-    showNotification('Published to Global Library!');
   };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
-    showNotification('Code copied');
+    showNotification('Code copied to clipboard');
   };
 
   const showNotification = (message: string) => {
@@ -193,20 +189,19 @@ const App: React.FC = () => {
       />
       
       <main className="flex-1 container mx-auto px-6 py-12">
-        {/* Apple-style Hero */}
         <section className="mb-20 text-center max-w-4xl mx-auto space-y-6">
           <div className="inline-flex items-center gap-3 px-4 py-1.5 rounded-full bg-white shadow-sm border border-gray-100 mb-2">
              <span className="flex h-2 w-2 relative">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
              </span>
-             <span className="text-[11px] font-bold text-gray-900 tracking-tight">Cloud Sync Active • <span className="text-blue-600">Admin Mode</span></span>
+             <span className="text-[11px] font-bold text-gray-900 tracking-tight">Connected to {cloudComponents.length > 0 ? 'Cloud Storage' : 'Cloud Library (Empty)'}</span>
           </div>
           <h1 className="text-5xl md:text-7xl font-extrabold text-[#1d1d1f] tracking-tight leading-[1.05]">
-            Shared UI <br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600">Knowledge Hub.</span>
+            UI Workspace Hub <br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Global Knowledge.</span>
           </h1>
           <p className="text-xl text-gray-500 font-medium max-w-2xl mx-auto">
-            A collaborative repository for your team's design assets. Everything is now globally persistent.
+            Access your shared design library from anywhere. Components are synced across all devices.
           </p>
           <div className="flex justify-center pt-8">
             <SearchBar 
@@ -217,7 +212,7 @@ const App: React.FC = () => {
         </section>
 
         <div className="flex flex-col lg:flex-row gap-12">
-          <aside className="w-full lg:w-60 flex-shrink-0">
+          <aside className="w-full lg:w-64 flex-shrink-0">
             <FilterSidebar 
               filters={filters} 
               onFilterChange={setFilters} 
@@ -231,7 +226,7 @@ const App: React.FC = () => {
             <div className="flex items-center justify-between mb-8">
               <div className="flex items-baseline gap-3">
                 <h2 className="text-2xl font-bold text-[#1d1d1f]">
-                  {filters.category === 'All' ? 'Latest Materials' : filters.category}
+                  {filters.category === 'All' ? 'Everything' : filters.category}
                 </h2>
                 <span className="text-sm font-semibold text-gray-300 tracking-tight">{filteredComponents.length} Assets</span>
               </div>
@@ -256,8 +251,8 @@ const App: React.FC = () => {
                     {(currentUser.role === 'Admin' || comp.author === currentUser.username) && (
                        <button 
                         onClick={(e) => { e.stopPropagation(); handleDeleteComponent(comp.id); }}
-                        className="absolute bottom-24 right-4 p-2 bg-red-50 text-red-500 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:bg-red-500 hover:text-white"
-                        title="Remove Global Asset"
+                        className="absolute top-4 left-4 p-2 bg-white/90 backdrop-blur text-red-500 rounded-xl opacity-0 group-hover:opacity-100 transition-all z-10 hover:bg-red-500 hover:text-white shadow-sm"
+                        title="Delete from Cloud"
                        >
                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -269,13 +264,13 @@ const App: React.FC = () => {
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-40 bg-white rounded-[2.5rem] shadow-sm border border-gray-100">
-                <h3 className="text-xl font-bold text-gray-900">End of the line</h3>
-                <p className="text-gray-500 mt-2">No matching assets found in the Cloud Library.</p>
+                <h3 className="text-xl font-bold text-gray-900">No results found</h3>
+                <p className="text-gray-500 mt-2">Try adjusting your filters or search query.</p>
                 <button 
                   onClick={() => setFilters({ search: '', category: 'All', technology: Technology.VANILLA })}
                   className="mt-8 text-blue-600 font-bold hover:underline"
                 >
-                  View All Materials
+                  Clear all filters
                 </button>
               </div>
             )}
@@ -283,15 +278,15 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      <footer className="py-20 border-t border-gray-100 bg-white/50">
-        <div className="container mx-auto px-6 flex flex-col items-center gap-8">
+      <footer className="py-20 border-t border-gray-100 bg-white">
+        <div className="container mx-auto px-6 flex flex-col items-center gap-6">
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 bg-black rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-xs">U</span>
             </div>
-            <span className="text-sm font-bold tracking-tight">UI HUB WORKSPACE</span>
+            <span className="text-sm font-bold tracking-tight">UI HUB CLOUD</span>
           </div>
-          <p className="text-[11px] text-gray-300 font-bold uppercase tracking-[0.2em]">&copy; 2024 Global Repository</p>
+          <p className="text-[11px] text-gray-400 font-bold uppercase tracking-[0.2em]">&copy; 2024 Global Shared Assets</p>
         </div>
       </footer>
 

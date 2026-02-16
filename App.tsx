@@ -1,17 +1,17 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { MOCK_COMPONENTS } from './constants';
-import { UIComponent, FilterState, Technology, DEFAULT_CATEGORIES, UserSession, UserRole } from './types';
-import { CloudDB } from './db';
-import Header from './components/Header';
-import SearchBar from './components/SearchBar';
-import FilterSidebar from './components/FilterSidebar';
-import ComponentCard from './components/ComponentCard';
-import ComponentDetails from './components/ComponentDetails';
-import Notification from './components/Notification';
-import AdminPanel from './components/AdminPanel';
-import AuthGate from './components/AuthGate';
-import AdminDashboard from './components/AdminDashboard';
+import { MOCK_COMPONENTS } from './constants.tsx';
+import { UIComponent, FilterState, Technology, DEFAULT_CATEGORIES, UserSession, UserRole } from './types.ts';
+import { CloudDB } from './db.ts';
+import Header from './components/Header.tsx';
+import SearchBar from './components/SearchBar.tsx';
+import FilterSidebar from './components/FilterSidebar.tsx';
+import ComponentCard from './components/ComponentCard.tsx';
+import ComponentDetails from './components/ComponentDetails.tsx';
+import Notification from './components/Notification.tsx';
+import AdminPanel from './components/AdminPanel.tsx';
+import AuthGate from './components/AuthGate.tsx';
+import AdminDashboard from './components/AdminDashboard.tsx';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserSession | null>(null);
@@ -40,26 +40,33 @@ const App: React.FC = () => {
       try {
         setIsLoading(true);
         
-        // 1. Get Components
-        const fetched = await CloudDB.getComponents();
+        // Try to fetch users and components, but don't let failure block the app
+        const [fetched, initialUsers] = await Promise.all([
+          CloudDB.getComponents().catch(() => []),
+          CloudDB.getUsers().catch(() => [])
+        ]);
+        
         setCloudComponents(fetched);
-
-        // 2. Get Users
-        const initialUsers = await CloudDB.getUsers();
         setUsers(initialUsers);
 
-        // 3. Check Session
+        // Safe Session Recovery
         const session = sessionStorage.getItem('ui_hub_session');
-        if (session) setCurrentUser(JSON.parse(session));
+        if (session && session !== 'undefined') {
+          try {
+            setCurrentUser(JSON.parse(session));
+          } catch (e) {
+            sessionStorage.removeItem('ui_hub_session');
+          }
+        }
 
-        // 4. Load Favs/Cats from local
+        // Load Favs/Cats from local
         const savedFavs = localStorage.getItem('ui_hub_favorites');
         if (savedFavs) setFavorites(JSON.parse(savedFavs));
         const savedCats = localStorage.getItem('ui_hub_categories');
         if (savedCats) setCategories(JSON.parse(savedCats));
 
       } catch (e) {
-        console.error("Initialization failed", e);
+        console.error("Critical initialization error:", e);
       } finally {
         setIsLoading(false);
       }
@@ -69,9 +76,7 @@ const App: React.FC = () => {
   }, []);
 
   const allComponents = useMemo(() => {
-    // Merge cloud and mock. Cloud components take precedence by date.
     const merged = [...cloudComponents, ...MOCK_COMPONENTS];
-    // Remove duplicates by ID just in case
     return merged.filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
   }, [cloudComponents]);
 
@@ -165,7 +170,7 @@ const App: React.FC = () => {
       setIsAdminOpen(false);
       showNotification('Published successfully!');
     } catch (err) {
-      showNotification('Error saving component. Check RLS settings.');
+      showNotification('Error saving component. Check connection.');
     }
   };
 
@@ -195,13 +200,15 @@ const App: React.FC = () => {
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600"></span>
              </span>
-             <span className="text-[11px] font-bold text-gray-900 tracking-tight">Connected to {cloudComponents.length > 0 ? 'Cloud Storage' : 'Cloud Library (Empty)'}</span>
+             <span className="text-[11px] font-bold text-gray-900 tracking-tight">
+               {isLoading ? 'Syncing...' : (cloudComponents.length > 0 ? 'Cloud Connected' : 'Cloud Library Ready')}
+             </span>
           </div>
           <h1 className="text-5xl md:text-7xl font-extrabold text-[#1d1d1f] tracking-tight leading-[1.05]">
             UI Workspace Hub <br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">Global Knowledge.</span>
           </h1>
           <p className="text-xl text-gray-500 font-medium max-w-2xl mx-auto">
-            Access your shared design library from anywhere. Components are synced across all devices.
+            Access your shared design library from anywhere. Syncing automatically.
           </p>
           <div className="flex justify-center pt-8">
             <SearchBar 
@@ -284,7 +291,7 @@ const App: React.FC = () => {
             <div className="w-6 h-6 bg-black rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-xs">U</span>
             </div>
-            <span className="text-sm font-bold tracking-tight">UI HUB CLOUD</span>
+            <span className="text-sm font-bold tracking-tight uppercase">UI HUB CLOUD</span>
           </div>
           <p className="text-[11px] text-gray-400 font-bold uppercase tracking-[0.2em]">&copy; 2024 Global Shared Assets</p>
         </div>

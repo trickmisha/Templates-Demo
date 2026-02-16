@@ -1,6 +1,6 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js';
-import { UIComponent, UserSession } from './types';
+import { UIComponent, UserSession } from './types.ts';
 
 const SUPABASE_URL = 'https://njlgikiwkwoewjvgmmcf.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_LttocuA0MlAPX9RTyi6mmQ_QOS80UJf';

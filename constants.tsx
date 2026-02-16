@@ -1,13 +1,11 @@
 
-// Removed Category from imports as it is not exported from types.ts
-import { Technology, UIComponent } from './types';
+import { Technology, UIComponent } from './types.ts';
 
 export const MOCK_COMPONENTS: UIComponent[] = [
   {
     id: '1',
     name: 'Modern SaaS Header',
     description: 'A responsive header with a sticky blurred background and mobile menu.',
-    // Replaced Category.HEADERS with string literal 'Headers' to match DEFAULT_CATEGORIES in types.ts
     category: 'Headers',
     technology: [Technology.REACT, Technology.TAILWIND],
     tags: ['sticky', 'blur', 'minimal'],
@@ -34,7 +32,6 @@ export const MOCK_COMPONENTS: UIComponent[] = [
     id: '2',
     name: 'Auth Multi-step Form',
     description: 'Clean authentication form with validation and progress indicator.',
-    // Replaced Category.FORMS with string literal 'Forms' to match DEFAULT_CATEGORIES in types.ts
     category: 'Forms',
     technology: [Technology.REACT, Technology.TAILWIND],
     tags: ['auth', 'validation', 'steps'],
@@ -52,7 +49,6 @@ export const MOCK_COMPONENTS: UIComponent[] = [
     id: '3',
     name: 'Neo-brutalist Pricing',
     description: 'High contrast pricing tables for creative agencies.',
-    // Replaced Category.PRICING with string literal 'Pricing' to match DEFAULT_CATEGORIES in types.ts
     category: 'Pricing',
     technology: [Technology.TAILWIND],
     tags: ['neo-brutalism', 'dark-mode'],
@@ -70,7 +66,6 @@ export const MOCK_COMPONENTS: UIComponent[] = [
     id: '4',
     name: 'Glassmorphism Card',
     description: 'Modern card style with heavy background blur and gradient borders.',
-    // Replaced Category.CARDS with string literal 'Cards' to match DEFAULT_CATEGORIES in types.ts
     category: 'Cards',
     technology: [Technology.CSS, Technology.TAILWIND],
     tags: ['glassmorphism', 'modern'],
@@ -87,7 +82,6 @@ export const MOCK_COMPONENTS: UIComponent[] = [
       id: '5',
       name: 'Geometric Hero',
       description: 'Abstract hero section with animated blobs and call to action.',
-      // Replaced Category.HERO with string literal 'Hero Sections' to match DEFAULT_CATEGORIES in types.ts
       category: 'Hero Sections',
       technology: [Technology.TAILWIND],
       tags: ['hero', 'animation'],
@@ -107,7 +101,6 @@ export const MOCK_COMPONENTS: UIComponent[] = [
     id: '6',
     name: 'Minimalist Footer',
     description: 'A clean footer with simple navigation and social links.',
-    // Replaced Category.FOOTERS with string literal 'Footers' to match DEFAULT_CATEGORIES in types.ts
     category: 'Footers',
     technology: [Technology.TAILWIND],
     tags: ['footer', 'minimal'],
